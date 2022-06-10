@@ -7,14 +7,14 @@
 
 ```java
 public static void t3() {
-  	//创建一个完成数量为3的条件锁
+    //创建一个完成数量为3的条件锁
     Lock lock = new Lock(3);
     for (int i = 0; i < 3; i++) {
         lock.addTask(() -> {
-          	//do something
+           //do something
         });
     }
-  	//当3个任务都完成后执行的代码
+    //当3个任务都完成后执行的代码
 }
 ```
 
