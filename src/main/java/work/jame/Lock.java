@@ -123,7 +123,7 @@ public class Lock {
         try {
             Thread.sleep(waitTime);
         } catch (InterruptedException e) {
-            log.debug("其他任务提前结束");
+            log.debug("所有任务提前结束");
             //throw new RuntimeException(e);
         }
         for (Map.Entry<String, ThreadEntity> entry : threadMap.entrySet()) {
