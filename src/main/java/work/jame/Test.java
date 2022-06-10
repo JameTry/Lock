@@ -5,9 +5,13 @@ package work.jame;
  * @date : 2022-06-10 14:35
  **/
 public class Test {
-    public static void main(String[] args) {
-        t1();
-        //t2();
+    public static void main(String[] args) throws InterruptedException {
+        //t1();
+        for (int i = 0; i < 100; i++) {
+            t2();
+            Thread.sleep(3500);
+        }
+
         //t3();
 
     }
@@ -47,7 +51,7 @@ public class Test {
 
         for (int i = 0; i < 3; i++) {
             lock.addTask(() -> {
-                int sleepTime = (int) (Math.random() * 5000);
+                int sleepTime = (int) (Math.random() * 7000);
                 System.out.println(Thread.currentThread().getName() + "号线程休眠时间" + sleepTime);
                 //测试等待时间不够其他线程执行的情况
                 Thread.sleep(sleepTime);

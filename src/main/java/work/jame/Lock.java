@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -103,18 +104,25 @@ public class Lock {
                         taskFinishedPostProcess.postProcess();
                 } catch (InterruptedException e) {
                     /**
-                     * 疑问:为什么这里需要再放进map才会生效?
-                     * 上面就没有放,这不放进去的话就直接空指针了
+                     * 疑问:为什么这里有时候放不进去?
+                     * 就是threadEntity的endTime还是null
+                     * 当换成ConcurrentHashMap时情况明显变少了,但是还是会有
                      */
+                    // FIXME: 2022/6/10 有时赋值不上
                     ThreadEntity threadEntity = threadMap.get(threadName);
                     threadEntity.setEndTime(System.currentTimeMillis());
-                    threadMap.put(threadName, threadEntity);
+                    //threadMap.put(threadName, threadEntity);
                     //throw new RuntimeException(e);
                 }
             });
             thread.setName(threadName);
             threadMap.put(threadName, new ThreadEntity(thread));
             thread.start();
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         log.debug("所有线程都正在运行");
     }
@@ -135,9 +143,9 @@ public class Lock {
             } else {
                 builder.append(threadEntity.getThread().getName()).append("号线程执行完成");
             }
-            builder.append(",开始时间:")
-                    .append(TimeUtil.timestampCastStringTime(threadEntity.getStartTime()))
-                    .append(",结束时间:").append(TimeUtil.timestampCastStringTime(threadEntity.getEndTime()));
+                builder.append(",开始时间:")
+                        .append(TimeUtil.timestampCastStringTime(threadEntity.getStartTime()))
+                        .append(",结束时间:").append(TimeUtil.timestampCastStringTime(threadEntity.getEndTime()));
             log.debug(builder.toString());
         }
     }
