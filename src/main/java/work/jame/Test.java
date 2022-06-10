@@ -18,7 +18,13 @@ public class Test {
             lock.addTask(() -> {
                 int sleepTime = (int) (Math.random() * 5000);
                 System.out.println(Thread.currentThread().getName() + "号线程休眠时间" + sleepTime);
+
+                //测试等待时间不够的情况
                 Thread.sleep(sleepTime);
+
+                //测试等待时间很充足的情况
+                //Thread.sleep(300);
+
                 System.out.println(Thread.currentThread().getName() + "号线程完成");
             });
         }

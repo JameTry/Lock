@@ -20,6 +20,8 @@ public class Lock {
 
     private HashMap<String, ThreadEntity> threadMap;
 
+    private Thread mainThread;
+
     /**
      * 存放所有添加的任务
      */
@@ -57,6 +59,7 @@ public class Lock {
         this.taskNumber = taskNumber;
         this.waitTime = waitTime;
         threadMap = new HashMap<>(taskNumber);
+        mainThread = Thread.currentThread();
     }
 
 
@@ -64,16 +67,21 @@ public class Lock {
         taskList.add(task);
         if (taskList.size() == taskNumber) {
             log.debug("所有线程都准备好了");
+            final AtomicInteger finishedNumber = new AtomicInteger(0);
             if (waitTime == -1) {
-                final AtomicInteger finishedNumber = new AtomicInteger(0);
                 startTask(() -> {
                     if (finishedNumber.incrementAndGet() == taskNumber) {
-                        wakeUp();
+                        wakeUpByNumber();
                     }
                 });
                 waitByNumber();
             } else {
-                startTask(null);
+                startTask(() -> {
+                    if (finishedNumber.incrementAndGet() == taskNumber) {
+                        wakeUpByTime();
+                    }
+
+                });
                 waitByTime();
             }
         }
@@ -92,7 +100,13 @@ public class Lock {
                     if (taskFinishedPostProcess != null)
                         taskFinishedPostProcess.postProcess();
                 } catch (InterruptedException e) {
-                    threadMap.get(threadName).setEndTime(System.currentTimeMillis());
+                    /**
+                     * 疑问:为什么这里需要在放进map才会生效?
+                     * 上面就没有放,这不放进去的话就直接空指针了
+                     */
+                    ThreadEntity threadEntity = threadMap.get(threadName);
+                    threadEntity.setEndTime(System.currentTimeMillis());
+                    threadMap.put(threadName, threadEntity);
                     //throw new RuntimeException(e);
                 }
             });
@@ -107,7 +121,8 @@ public class Lock {
         try {
             Thread.sleep(waitTime);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            log.debug("其他任务提前结束");
+            //throw new RuntimeException(e);
         }
         for (Map.Entry<String, ThreadEntity> entry : threadMap.entrySet()) {
             StringBuilder builder = new StringBuilder();
@@ -135,10 +150,14 @@ public class Lock {
         }
     }
 
-    private void wakeUp() {
+    private void wakeUpByNumber() {
         synchronized (object) {
             object.notifyAll();
         }
+    }
+
+    private void wakeUpByTime() {
+        mainThread.interrupt();
     }
 
 }
