@@ -7,10 +7,10 @@ package work.jame;
 public class Test {
     public static void main(String[] args) throws InterruptedException {
         //t1();
-        for (int i = 0; i < 100; i++) {
+
             t2();
-            Thread.sleep(3500);
-        }
+
+
 
         //t3();
 

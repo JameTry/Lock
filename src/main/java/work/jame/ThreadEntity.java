@@ -10,7 +10,11 @@ import java.util.concurrent.TimeUnit;
  **/
 public class ThreadEntity {
     private Thread thread;
-    private Boolean finish = false;
+    /**
+     * 当线程正常执行-表示是否完成
+     * 当线程被打断-表示被打断后流程是否完成
+     */
+    private Boolean finished = false;
     private Long startTime = System.currentTimeMillis();
     private Long endTime;
 
@@ -27,12 +31,12 @@ public class ThreadEntity {
         this.thread = thread;
     }
 
-    public Boolean getFinish() {
-        return finish;
+    public Boolean getFinished() {
+        return finished;
     }
 
-    public void setFinish(Boolean finish) {
-        this.finish = finish;
+    public void setFinished(Boolean finished) {
+        this.finished = finished;
     }
 
     public Long getStartTime() {

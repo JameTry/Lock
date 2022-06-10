@@ -74,7 +74,7 @@ public class Lock {
             if (waitTime == -1) {
                 startTask(() -> {
                     if (finishedNumber.incrementAndGet() == taskNumber) {
-                        wakeUpByNumber();
+                        wakeUpAllByNumber();
                     }
                 });
                 waitByNumber();
@@ -98,31 +98,31 @@ public class Lock {
                 try {
                     task.run();
                     ThreadEntity threadEntity = threadMap.get(threadName);
-                    threadEntity.setFinish(true);
                     threadEntity.setEndTime(System.currentTimeMillis());
-                    if (taskFinishedPostProcess != null)
-                        taskFinishedPostProcess.postProcess();
+                    threadEntity.setFinished(true);
+                    taskFinishedPostProcess.postProcess();
                 } catch (InterruptedException e) {
+
                     /**
                      * 疑问:为什么这里有时候放不进去?
                      * 就是threadEntity的endTime还是null
                      * 当换成ConcurrentHashMap时情况明显变少了,但是还是会有
+                     * --解决--
+                     * 因为主线程打断完后这个线程不一定能在主线程后打断后立刻执行
+                     * 导致这个endTime还是为null,至于为什么换成ConcurrentHashMap就变少了的情况还需要研究研究
                      */
-                    // FIXME: 2022/6/10 有时赋值不上
                     ThreadEntity threadEntity = threadMap.get(threadName);
                     threadEntity.setEndTime(System.currentTimeMillis());
+                    //这个一定要放到所有流程的最后面,因为它决定了当前线程打断后操作是否完成
+                    threadEntity.setFinished(true);
                     //threadMap.put(threadName, threadEntity);
                     //throw new RuntimeException(e);
+
                 }
             });
             thread.setName(threadName);
             threadMap.put(threadName, new ThreadEntity(thread));
             thread.start();
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
         log.debug("所有线程都正在运行");
     }
@@ -137,16 +137,23 @@ public class Lock {
         for (Map.Entry<String, ThreadEntity> entry : threadMap.entrySet()) {
             StringBuilder builder = new StringBuilder();
             ThreadEntity threadEntity = entry.getValue();
-            if (!threadEntity.getFinish()) {
+
+            if (!threadEntity.getFinished()) {
                 threadEntity.getThread().interrupt();
+                while (true) {
+                    if (threadEntity.getFinished()) {
+                        break;
+                    }
+                }
                 builder.append(threadEntity.getThread().getName()).append("号线程被打断");
             } else {
                 builder.append(threadEntity.getThread().getName()).append("号线程执行完成");
             }
-                builder.append(",开始时间:")
-                        .append(TimeUtil.timestampCastStringTime(threadEntity.getStartTime()))
-                        .append(",结束时间:").append(TimeUtil.timestampCastStringTime(threadEntity.getEndTime()));
+            builder.append(",开始时间:")
+                    .append(TimeUtil.timestampCastStringTime(threadEntity.getStartTime()))
+                    .append(",结束时间:").append(TimeUtil.timestampCastStringTime(threadEntity.getEndTime()));
             log.debug(builder.toString());
+
         }
     }
 
@@ -160,9 +167,9 @@ public class Lock {
         }
     }
 
-    private void wakeUpByNumber() {
+    private void wakeUpAllByNumber() {
         synchronized (object) {
-            object.notifyAll();
+            object.notify();
         }
     }
 
