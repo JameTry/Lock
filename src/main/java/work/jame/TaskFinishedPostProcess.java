@@ -4,6 +4,7 @@ package work.jame;
  * @author : Jame
  * @date : 2022-06-10 16:26
  **/
+@FunctionalInterface
 public interface TaskFinishedPostProcess {
 
     /**

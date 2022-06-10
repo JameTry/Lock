@@ -25,7 +25,7 @@ public class Lock {
     /**
      * 存放所有添加的任务
      */
-    private final List<Task> taskList = new ArrayList<>();
+    private List<Task> taskList;
 
     /**
      * 任务数量
@@ -47,7 +47,8 @@ public class Lock {
             throw new RuntimeException("初始化线程数量不能小于1");
         }
         this.taskNumber = taskNumber;
-        threadMap = new HashMap<>(taskNumber);
+        this.taskList = new ArrayList<>(taskNumber);
+        this.threadMap = new HashMap<>(taskNumber);
     }
 
     public Lock(int taskNumber, long waitTime) {
@@ -58,8 +59,9 @@ public class Lock {
         }
         this.taskNumber = taskNumber;
         this.waitTime = waitTime;
-        threadMap = new HashMap<>(taskNumber);
-        mainThread = Thread.currentThread();
+        this.threadMap = new HashMap<>(taskNumber);
+        this.taskList = new ArrayList<>(taskNumber);
+        this.mainThread = Thread.currentThread();
     }
 
 
@@ -101,7 +103,7 @@ public class Lock {
                         taskFinishedPostProcess.postProcess();
                 } catch (InterruptedException e) {
                     /**
-                     * 疑问:为什么这里需要在放进map才会生效?
+                     * 疑问:为什么这里需要再放进map才会生效?
                      * 上面就没有放,这不放进去的话就直接空指针了
                      */
                     ThreadEntity threadEntity = threadMap.get(threadName);
