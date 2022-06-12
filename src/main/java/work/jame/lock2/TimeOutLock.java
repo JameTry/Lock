@@ -1,7 +1,5 @@
 package work.jame.lock2;
 
-import com.sun.org.apache.bcel.internal.generic.ARETURN;
-import com.sun.org.apache.xpath.internal.operations.Variable;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -94,10 +92,8 @@ public class TimeOutLock {
                 ThreadNode node = new ThreadNode();
                 node.thread = Thread.currentThread();
                 if (casAddNode(this, rootNodeOffset, rootNode, node)) {
-                    if (lockStatus == LockStatus.NOT_INIT) {
-                        if (tryRunning()) {
-                            return true;
-                        }
+                    if (tryRunning()) {
+                        return true;
                     }
                     unsafe.park(false, 0L);
                     return true;
@@ -114,17 +110,19 @@ public class TimeOutLock {
      * @return
      */
     public boolean tryRunning() {
-
         boolean running;
         for (int i = 0; i < 3; i++) {
             if (lockStatus == LockStatus.RUNNING_NOT_INIT || lockStatus == LockStatus.RUNNING_INIT) {
                 continue;
             }
-            running = casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.RUNNING_NOT_INIT);
-            if (running) {
-                monitor(Thread.currentThread());
-                return true;
+            if (lockStatus == LockStatus.NOT_INIT) {
+                running = casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.RUNNING_NOT_INIT);
+                if (running) {
+                    monitor(Thread.currentThread());
+                    return true;
+                }
             }
+
         }
         return false;
     }
@@ -133,7 +131,6 @@ public class TimeOutLock {
         while (true) {
             if (lockStatus == LockStatus.RUNNING_NOT_INIT) {
                 if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.NOT_INIT)) {
-                    wakeUpFirstNode();
                     return;
                 }
             } else if (lockStatus == LockStatus.RUNNING_INIT) {
@@ -150,6 +147,10 @@ public class TimeOutLock {
         }
     }
 
+    public void show() {
+        System.out.println(rootNode);
+    }
+
     private void wakeUpFirstNode() {
         if (rootNode != null) {
             ThreadNode headThreadNode = rootNode;
@@ -158,6 +159,8 @@ public class TimeOutLock {
             monitor(headThreadNode.thread);
             unsafe.unpark(headThreadNode.thread);
             headThreadNode.thread = null;
+
+
         }
     }
 

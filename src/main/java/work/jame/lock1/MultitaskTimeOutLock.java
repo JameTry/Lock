@@ -115,7 +115,6 @@ public class MultitaskTimeOutLock {
                     threadEntity.setEndTime(System.currentTimeMillis());
                     //这个一定要放到所有流程的最后面,因为它决定了当前线程被打断后操作是否完成
                     threadEntity.setFinished(true);
-                    //threadMap.put(threadName, threadEntity);
                     //throw new RuntimeException(e);
 
                 }
@@ -132,7 +131,6 @@ public class MultitaskTimeOutLock {
             Thread.sleep(waitTime);
         } catch (InterruptedException e) {
             log.debug("所有任务提前结束");
-            //throw new RuntimeException(e);
         }
         for (Map.Entry<String, ThreadEntity> entry : threadMap.entrySet()) {
             StringBuilder builder = new StringBuilder();

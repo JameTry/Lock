@@ -1,6 +1,5 @@
 package work.jame.lock2.test;
 
-import work.jame.lock1.MultitaskTimeOutLock;
 import work.jame.lock2.TimeOutLock;
 
 /**
@@ -18,6 +17,7 @@ public class Test {
 
 
     public static void haveLock() {
+
         for (int oo = 0; oo < 20; oo++) {
             int finalO = oo;
             //正常添
@@ -31,10 +31,6 @@ public class Test {
                         t++;
                     }
                     System.out.println("线程:"+Thread.currentThread().getName() + "===循环次数：" + finalO + "循环" + "结果" + t);
-                    if (finalI == 9) {
-                        System.out.println("\n\n");
-                    }
-                    //System.out.println(Thread.currentThread().getName() + "号线程执行完成");
                     lock.unLock();
                 });
                 thread.setName(finalI + "");
@@ -42,8 +38,10 @@ public class Test {
             }
 
             try {
-                Thread.sleep(2000);
+                Thread.sleep(4000);
+                System.out.println("\n\n");
                 t = 0;
+                lock.show();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
