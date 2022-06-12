@@ -1,23 +1,24 @@
-package work.jame;
+package work.jame.lock1;
 
 
 import org.apache.log4j.Logger;
+import work.jame.util.TimeUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author : Jame
  * @date : 2022-06-10 14:12
+ * 多任务超时锁
  **/
-public class Lock {
+public class MultitaskTimeOutLock {
 
     private final Object object = new Object();
-    private static final Logger log = Logger.getLogger(Lock.class);
+    private static final Logger log = Logger.getLogger(MultitaskTimeOutLock.class);
 
     private HashMap<String, ThreadEntity> threadMap;
 
@@ -38,12 +39,12 @@ public class Lock {
      */
     private long waitTime = -1;
 
-    private Lock() {
+    private MultitaskTimeOutLock() {
 
     }
 
 
-    public Lock(int taskNumber) {
+    public MultitaskTimeOutLock(int taskNumber) {
         if (taskNumber < 1) {
             throw new RuntimeException("初始化线程数量不能小于1");
         }
@@ -52,7 +53,7 @@ public class Lock {
         this.threadMap = new HashMap<>(taskNumber);
     }
 
-    public Lock(int taskNumber, long waitTime) {
+    public MultitaskTimeOutLock(int taskNumber, long waitTime) {
         if (taskNumber < 1) {
             throw new RuntimeException("初始化线程数量不能小于1");
         } else if (waitTime < 1) {
@@ -83,7 +84,6 @@ public class Lock {
                     if (finishedNumber.incrementAndGet() == taskNumber) {
                         wakeUpByTime();
                     }
-
                 });
                 waitByTime();
             }
@@ -113,7 +113,7 @@ public class Lock {
                      */
                     ThreadEntity threadEntity = threadMap.get(threadName);
                     threadEntity.setEndTime(System.currentTimeMillis());
-                    //这个一定要放到所有流程的最后面,因为它决定了当前线程打断后操作是否完成
+                    //这个一定要放到所有流程的最后面,因为它决定了当前线程被打断后操作是否完成
                     threadEntity.setFinished(true);
                     //threadMap.put(threadName, threadEntity);
                     //throw new RuntimeException(e);

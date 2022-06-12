@@ -1,19 +1,20 @@
-package work.jame;
+package work.jame.lock1.test;
+
+import work.jame.lock1.MultitaskTimeOutLock;
+import work.jame.lock2.TimeOutLock;
 
 /**
  * @author : Jame
  * @date : 2022-06-10 14:35
  **/
 public class Test {
+
+
     public static void main(String[] args) throws InterruptedException {
-        //t1();
-
-            t2();
-
-
-
+        t1();
+        //t2();
         //t3();
-
+;
     }
 
     /**
@@ -24,10 +25,10 @@ public class Test {
         long startTime = System.currentTimeMillis();   //获取开始时间
         System.out.println("根据等待时间的锁");
 
-        Lock lock = new Lock(3, 3000);
+        MultitaskTimeOutLock multitaskTimeOutLock = new MultitaskTimeOutLock(3, 3000);
 
         for (int i = 0; i < 3; i++) {
-            lock.addTask(() -> {
+            multitaskTimeOutLock.addTask(() -> {
                 //测试等待时间很充足的情况
                 Thread.sleep(300);
                 System.out.println(Thread.currentThread().getName() + "号线程完成");
@@ -47,10 +48,10 @@ public class Test {
         long startTime = System.currentTimeMillis();   //获取开始时间
         System.out.println("根据等待时间的锁");
 
-        Lock lock = new Lock(3, 3000);
+        MultitaskTimeOutLock multitaskTimeOutLock = new MultitaskTimeOutLock(3, 3000);
 
         for (int i = 0; i < 3; i++) {
-            lock.addTask(() -> {
+            multitaskTimeOutLock.addTask(() -> {
                 int sleepTime = (int) (Math.random() * 7000);
                 System.out.println(Thread.currentThread().getName() + "号线程休眠时间" + sleepTime);
                 //测试等待时间不够其他线程执行的情况
@@ -70,9 +71,9 @@ public class Test {
     public static void t3() {
         long startTime = System.currentTimeMillis();   //获取开始时间
         System.out.println("根据完成线程数量的锁");
-        Lock lock = new Lock(3);
+        MultitaskTimeOutLock multitaskTimeOutLock = new MultitaskTimeOutLock(3);
         for (int i = 0; i < 3; i++) {
-            lock.addTask(() -> {
+            multitaskTimeOutLock.addTask(() -> {
                 int sleepTime = (int) (Math.random() * 5000);
                 System.out.println(Thread.currentThread().getName() + "号线程休眠时间" + sleepTime);
                 Thread.sleep(sleepTime);

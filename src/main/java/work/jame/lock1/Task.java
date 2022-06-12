@@ -1,4 +1,4 @@
-package work.jame;
+package work.jame.lock1;
 
 /**
  * @author : Jame

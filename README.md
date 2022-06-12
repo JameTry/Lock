@@ -1,5 +1,5 @@
 # Lock
-## 条件等待锁
+## 多任务超时锁
 
 1.根据数量作为条件
 
@@ -8,9 +8,9 @@
 ```java
 public static void t3() {
   	//创建一个完成数量为3的条件锁
-    Lock lock = new Lock(3);
+    MultitaskTimeOutLock multitaskTimeOutLock = new MultitaskTimeOutLock(3);
     for (int i = 0; i < 3; i++) {
-        lock.addTask(() -> {
+        multitaskTimeOutLock.addTask(() -> {
           	//do something
         });
     }
@@ -27,10 +27,10 @@ public static void t3() {
 ```java
 public static void t2() {
     //创建一个完成数量为3,同时指定最大等待时间为3000毫秒的条件锁
-    Lock lock = new Lock(3, 3000);
+    MultitaskTimeOutLock multitaskTimeOutLock = new MultitaskTimeOutLock(3, 3000);
 
     for (int i = 0; i < 3; i++) {
-        lock.addTask(() -> {
+        multitaskTimeOutLock.addTask(() -> {
          	//do something
         });
     }

@@ -1,4 +1,4 @@
-package work.jame;
+package work.jame.util;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
