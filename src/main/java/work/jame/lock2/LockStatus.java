@@ -12,7 +12,7 @@ public enum LockStatus {
     /**
      * 当前有运行的线程,根节点已经初始化
      */
-    RUNNING_INIT,
+    INIT,
     /**
      * 当前有运行的线程,根节点未经初始化
      */

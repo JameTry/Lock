@@ -3,6 +3,7 @@ package work.jame.lock2;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
+import java.security.spec.RSAOtherPrimeInfo;
 
 /**
  * @author : Jame
@@ -62,43 +63,57 @@ public class TimeOutLock {
     }
 
     public void lock() {
-        if (tryRunning()) {
-            return;
-        }
-        if (addHeadNode()) {
+        checkAndAwakenSkippedNode();
+        if (tryRunning() || addHeadNode()) {
+
             return;
         }
         while (true) {
-            if (lockStatus == LockStatus.RUNNING_INIT) {
+            if (lockStatus == LockStatus.INIT) {
                 ThreadNode node = getLastNode(rootNode);
                 if (node == null) {
-                    addHeadNode();
+                    if (addHeadNode()) {
+                        return;
+                    }
                 } else {
                     ThreadNode newNode = new ThreadNode();
                     newNode.thread = Thread.currentThread();
                     if (casAddNode(node, nodeOffset, node.nextNode, newNode)) {
+                        //System.out.println("head park " + node.thread.isInterrupted());
                         unsafe.park(false, 0L);
-                        break;
+                        return;
                     }
                 }
+            } else if (addHeadNode()) {
+                return;
             }
         }
     }
 
+    private void checkAndAwakenSkippedNode() {
+        if (lockStatus == LockStatus.NOT_INIT && rootNode != null) {
+            if (casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.INIT)) {
+                wakeUpFirstNode();
+            }
+
+        }
+    }
+
     private boolean addHeadNode() {
-        if (lockStatus == LockStatus.RUNNING_NOT_INIT || lockStatus == LockStatus.NOT_INIT) {
-            if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.RUNNING_INIT) ||
-                    casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.RUNNING_INIT)) {
-                ThreadNode node = new ThreadNode();
-                node.thread = Thread.currentThread();
-                if (casAddNode(this, rootNodeOffset, rootNode, node)) {
-                    if (tryRunning()) {
+        if (lockStatus == LockStatus.RUNNING_NOT_INIT) {
+            if (tryRunning()) {
+                return true;
+            }
+            ThreadNode node = new ThreadNode();
+            node.thread = Thread.currentThread();
+            if (casAddNode(this, rootNodeOffset, rootNode, node)) {
+                while (true) {
+                    if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.INIT)) {
+                        //System.out.println("head park " + node.thread.isInterrupted());
+                        unsafe.park(false, 0L);
                         return true;
                     }
-                    unsafe.park(false, 0L);
-                    return true;
                 }
-
             }
         }
         return false;
@@ -109,12 +124,9 @@ public class TimeOutLock {
      *
      * @return
      */
-    public boolean tryRunning() {
+    private boolean tryRunning() {
         boolean running;
         for (int i = 0; i < 3; i++) {
-            if (lockStatus == LockStatus.RUNNING_NOT_INIT || lockStatus == LockStatus.RUNNING_INIT) {
-                continue;
-            }
             if (lockStatus == LockStatus.NOT_INIT) {
                 running = casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.RUNNING_NOT_INIT);
                 if (running) {
@@ -133,9 +145,9 @@ public class TimeOutLock {
                 if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.NOT_INIT)) {
                     return;
                 }
-            } else if (lockStatus == LockStatus.RUNNING_INIT) {
+            } else if (lockStatus == LockStatus.INIT) {
                 if (rootNode == null) {
-                    if (casChangeLockStatus(LockStatus.RUNNING_INIT, LockStatus.NOT_INIT)) {
+                    if (casChangeLockStatus(LockStatus.INIT, LockStatus.NOT_INIT)) {
                         return;
                     }
                 } else {
@@ -154,13 +166,10 @@ public class TimeOutLock {
     private void wakeUpFirstNode() {
         if (rootNode != null) {
             ThreadNode headThreadNode = rootNode;
-            // if (casAddNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
             rootNode = headThreadNode.nextNode;
             monitor(headThreadNode.thread);
-            unsafe.unpark(headThreadNode.thread);
+            headThreadNode.thread.interrupt();
             headThreadNode.thread = null;
-
-
         }
     }
 
@@ -168,6 +177,7 @@ public class TimeOutLock {
      * 监视当前执行的线程是否超时,如果超时则打断执行
      */
     private void monitor(Thread currentRunningThread) {
+
         if (timeOut == 0L) {
             return;
         }
@@ -248,9 +258,6 @@ class ThreadNode {
 
     @Override
     public String toString() {
-        return "ThreadNode{" +
-                "threadName=" + thread.getName() +
-                ", nextNode=" + nextNode +
-                '}';
+        return "ThreadNode{" + "threadName=" + thread.getName() + ", nextNode=" + nextNode + '}';
     }
 }
