@@ -23,9 +23,7 @@ public class TimeOutLock {
     /**
      * 描述当前锁的状态
      */
-    private volatile LockStatus lockStatus = LockStatus.NOT_INIT;
-
-    private Integer lockState=0;
+    private volatile int lockState = 0;
 
     /**
      * 节点偏移量
@@ -35,7 +33,7 @@ public class TimeOutLock {
     /**
      * 锁状态偏移量
      */
-    private long lockStatusOffset;
+    private long lockStateOffset;
 
     /**
      * 根节点偏移量
@@ -56,7 +54,7 @@ public class TimeOutLock {
             }
             unsafe = (Unsafe) unsafeField.get(null);
             nodeOffset = unsafe.objectFieldOffset(ThreadNode.class.getDeclaredField("nextNode"));
-            lockStatusOffset = unsafe.objectFieldOffset(TimeOutLock.class.getDeclaredField("lockStatus"));
+            lockStateOffset = unsafe.objectFieldOffset(TimeOutLock.class.getDeclaredField("lockState"));
             rootNodeOffset = unsafe.objectFieldOffset(TimeOutLock.class.getDeclaredField("rootNode"));
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
@@ -67,32 +65,34 @@ public class TimeOutLock {
         if (tryRunning() || addHeadNode()) {
             return;
         }
-
         while (true) {
-            if (lockStatus == LockStatus.INIT) {
+            if (lockState == 1) {
                 ThreadNode node = getLastNode(rootNode);
                 if (node == null) {
                     if (addHeadNode()) {
                         return;
                     }
-                } else {
-                    if (casChangeLockStatus(LockStatus.INIT, LockStatus.ADDING)) {
-                        ThreadNode newNode = new ThreadNode();
-                        newNode.thread = Thread.currentThread();
-                        node.nextNode = newNode;
-                        lockStatus = LockStatus.INIT;
+                } else if (casChangeLockStatus(1, 2)) {
+                    ThreadNode newNode = new ThreadNode();
+                    newNode.thread = Thread.currentThread();
+                    if (casChangeNode(node, nodeOffset, node.nextNode, newNode)) {
+                        absoluteCasChangeLockStatus(2, 1);
                         unsafe.park(false, 0L);
+                        acquire(newNode);
                         return;
                     }
                 }
-
             } else if (addHeadNode()) {
                 return;
             }
         }
-
     }
 
+    private void acquire(ThreadNode node) {
+        if (rootNode != node) {
+            absoluteCasChangeLockStatus(0, 1);
+        }
+    }
 
     /**
      * 添加头节点
@@ -100,17 +100,20 @@ public class TimeOutLock {
      * @return
      */
     private boolean addHeadNode() {
-        if (lockStatus == LockStatus.RUNNING_NOT_INIT) {
-            if (tryRunning()) {
-                return true;
-            }
-            if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.ADDING)) {
+        if (lockState == 1) {
+            if (casChangeLockStatus(1, 2)) {
                 ThreadNode node = new ThreadNode();
                 node.thread = Thread.currentThread();
-                rootNode = node;
-                lockStatus = LockStatus.INIT;
-                unsafe.park(false, 0L);
-                return true;
+                if (rootNode == null && casChangeNode(this, rootNodeOffset, rootNode, node)) {
+                    absoluteCasChangeLockStatus(2, 1);
+                    unsafe.park(false, 0L);
+                    acquire(node);
+                    return true;
+                } else if (rootNode != null) {
+                    absoluteCasChangeLockStatus(2, 1);
+                }
+            } else if (lockState == 0) {
+                return tryRunning();
             }
         }
         return false;
@@ -122,35 +125,18 @@ public class TimeOutLock {
      * @return
      */
     private boolean tryRunning() {
-        boolean running;
         for (int i = 0; i < 3; i++) {
-            if (lockStatus == LockStatus.NOT_INIT) {
-                running = casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.RUNNING_NOT_INIT);
-                if (running) {
-                    monitor(Thread.currentThread());
-                    return true;
-                }
+            if (lockState == 0 && casChangeLockStatus(0, 1)) {
+                monitor(Thread.currentThread());
+                return true;
             }
         }
         return false;
     }
 
     public void unLock() {
-        while (true) {
-            if (lockStatus == LockStatus.RUNNING_NOT_INIT) {
-                if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.NOT_INIT)) {
-                    return;
-                }
-            } else if (lockStatus == LockStatus.INIT) {
-                if (rootNode == null) {
-                    if (casChangeLockStatus(LockStatus.INIT, LockStatus.NOT_INIT)) {
-                        return;
-                    }
-                } else {
-                    wakeUpFirstNode();
-                    return;
-                }
-            }
+        if (rootNode != null) {
+            wakeUpFirstNode();
         }
     }
 
@@ -162,12 +148,18 @@ public class TimeOutLock {
         while (true) {
             if (rootNode != null) {
                 ThreadNode headThreadNode = rootNode;
-                if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
-                    headThreadNode.nextNode = null;
-                    monitor(headThreadNode.thread);
-                    unsafe.unpark(headThreadNode.thread);
-                    return;
+                if (casChangeLockStatus(1, 0)) {
+                    while (true) {
+                        if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
+                            unsafe.unpark(headThreadNode.thread);
+                            headThreadNode.nextNode = null;
+                            monitor(headThreadNode.thread);
+                            return;
+                        }
+                    }
                 }
+            } else {
+                return;
             }
         }
     }
@@ -212,8 +204,14 @@ public class TimeOutLock {
      *
      * @return
      */
-    private boolean casChangeLockStatus(LockStatus oldStatus, LockStatus newStatus) {
-        return unsafe.compareAndSwapObject(this, lockStatusOffset, oldStatus, newStatus);
+    private boolean casChangeLockStatus(int oldStatus, int newStatus) {
+        return unsafe.compareAndSwapInt(this, lockStateOffset, oldStatus, newStatus);
+    }
+
+    private void absoluteCasChangeLockStatus(int oldStatus, int newStatus) {
+        while (true) {
+            if (casChangeLockStatus(oldStatus, newStatus)) return;
+        }
     }
 
     /**
