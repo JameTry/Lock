@@ -25,6 +25,8 @@ public class TimeOutLock {
      */
     private volatile LockStatus lockStatus = LockStatus.NOT_INIT;
 
+    private Integer lockState=0;
+
     /**
      * 节点偏移量
      */

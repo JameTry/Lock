@@ -18,11 +18,11 @@ public class Test {
 
     public static void haveLock() {
 
-      //   for (int oo = 0; oo < 10; oo++) {
+         for (int oo = 0; oo < 10; oo++) {
         int finalO = 1;
         //正常添
         TimeOutLock lock = new TimeOutLock();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 5; i++) {
             int finalI = i;
             Thread thread = new Thread(() -> {
                 //System.out.println(finalI);
@@ -45,7 +45,7 @@ public class Test {
             lock.show();
         } catch (InterruptedException e) {
             e.printStackTrace();
-     //   }
+        }
          }
 
         //模拟10个超时的线程
