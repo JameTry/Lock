@@ -3,7 +3,6 @@ package work.jame.lock2;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
-import java.security.spec.RSAOtherPrimeInfo;
 
 /**
  * @author : Jame
@@ -63,11 +62,10 @@ public class TimeOutLock {
     }
 
     public void lock() {
-        checkAndAwakenSkippedNode();
         if (tryRunning() || addHeadNode()) {
-
             return;
         }
+
         while (true) {
             if (lockStatus == LockStatus.INIT) {
                 ThreadNode node = getLastNode(rootNode);
@@ -76,44 +74,41 @@ public class TimeOutLock {
                         return;
                     }
                 } else {
-                    ThreadNode newNode = new ThreadNode();
-                    newNode.thread = Thread.currentThread();
-                    if (casAddNode(node, nodeOffset, node.nextNode, newNode)) {
-                        //System.out.println("head park " + node.thread.isInterrupted());
+                    if (casChangeLockStatus(LockStatus.INIT, LockStatus.ADDING)) {
+                        ThreadNode newNode = new ThreadNode();
+                        newNode.thread = Thread.currentThread();
+                        node.nextNode = newNode;
+                        lockStatus = LockStatus.INIT;
                         unsafe.park(false, 0L);
                         return;
                     }
                 }
+
             } else if (addHeadNode()) {
                 return;
             }
         }
+
     }
 
-    private void checkAndAwakenSkippedNode() {
-        if (lockStatus == LockStatus.NOT_INIT && rootNode != null) {
-            if (casChangeLockStatus(LockStatus.NOT_INIT, LockStatus.INIT)) {
-                wakeUpFirstNode();
-            }
 
-        }
-    }
-
+    /**
+     * 添加头节点
+     *
+     * @return
+     */
     private boolean addHeadNode() {
         if (lockStatus == LockStatus.RUNNING_NOT_INIT) {
             if (tryRunning()) {
                 return true;
             }
-            ThreadNode node = new ThreadNode();
-            node.thread = Thread.currentThread();
-            if (casAddNode(this, rootNodeOffset, rootNode, node)) {
-                while (true) {
-                    if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.INIT)) {
-                        //System.out.println("head park " + node.thread.isInterrupted());
-                        unsafe.park(false, 0L);
-                        return true;
-                    }
-                }
+            if (casChangeLockStatus(LockStatus.RUNNING_NOT_INIT, LockStatus.ADDING)) {
+                ThreadNode node = new ThreadNode();
+                node.thread = Thread.currentThread();
+                rootNode = node;
+                lockStatus = LockStatus.INIT;
+                unsafe.park(false, 0L);
+                return true;
             }
         }
         return false;
@@ -134,7 +129,6 @@ public class TimeOutLock {
                     return true;
                 }
             }
-
         }
         return false;
     }
@@ -154,7 +148,6 @@ public class TimeOutLock {
                     wakeUpFirstNode();
                     return;
                 }
-
             }
         }
     }
@@ -164,12 +157,16 @@ public class TimeOutLock {
     }
 
     private void wakeUpFirstNode() {
-        if (rootNode != null) {
-            ThreadNode headThreadNode = rootNode;
-            rootNode = headThreadNode.nextNode;
-            monitor(headThreadNode.thread);
-            headThreadNode.thread.interrupt();
-            headThreadNode.thread = null;
+        while (true) {
+            if (rootNode != null) {
+                ThreadNode headThreadNode = rootNode;
+                if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
+                    headThreadNode.nextNode = null;
+                    monitor(headThreadNode.thread);
+                    unsafe.unpark(headThreadNode.thread);
+                    return;
+                }
+            }
         }
     }
 
@@ -204,7 +201,7 @@ public class TimeOutLock {
      * @param newThreadNode 新对象
      * @return
      */
-    private boolean casAddNode(Object node, long offset, ThreadNode oldThreadNode, ThreadNode newThreadNode) {
+    private boolean casChangeNode(Object node, long offset, ThreadNode oldThreadNode, ThreadNode newThreadNode) {
         return unsafe.compareAndSwapObject(node, offset, oldThreadNode, newThreadNode);
     }
 
