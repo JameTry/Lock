@@ -75,17 +75,18 @@ public class TimeOutLock {
                 } else if (casChangeLockStatus(1, 2)) {
                     ThreadNode newNode = new ThreadNode();
                     newNode.thread = Thread.currentThread();
-                    if (casChangeNode(node, nodeOffset, node.nextNode, newNode)) {
-                        absoluteCasChangeLockStatus(2, 1);
-                        unsafe.park(false, 0L);
-                        acquire(newNode);
-                        return;
-                    }
+                    node.nextNode = newNode;
+                    absoluteCasChangeLockStatus(2, 1);
+                    unsafe.park(false, 0L);
+                    acquire(newNode);
+                    return;
+
                 }
-            } else if (addHeadNode()) {
+            } else if (lockState == 0 && addHeadNode()) {
                 return;
             }
         }
+
     }
 
     private void acquire(ThreadNode node) {
@@ -101,20 +102,17 @@ public class TimeOutLock {
      */
     private boolean addHeadNode() {
         if (lockState == 1) {
-            if (casChangeLockStatus(1, 2)) {
+            if (rootNode == null && casChangeLockStatus(1, 2)) {
                 ThreadNode node = new ThreadNode();
                 node.thread = Thread.currentThread();
-                if (rootNode == null && casChangeNode(this, rootNodeOffset, rootNode, node)) {
-                    absoluteCasChangeLockStatus(2, 1);
-                    unsafe.park(false, 0L);
-                    acquire(node);
-                    return true;
-                } else if (rootNode != null) {
-                    absoluteCasChangeLockStatus(2, 1);
-                }
-            } else if (lockState == 0) {
-                return tryRunning();
+                rootNode = node;
+                absoluteCasChangeLockStatus(2, 1);
+                unsafe.park(false, 0L);
+                acquire(node);
+                return true;
             }
+        } else if (lockState == 0) {
+            return tryRunning();
         }
         return false;
     }
@@ -126,7 +124,7 @@ public class TimeOutLock {
      */
     private boolean tryRunning() {
         for (int i = 0; i < 3; i++) {
-            if (lockState == 0 && casChangeLockStatus(0, 1)) {
+            if (rootNode == null && casChangeLockStatus(0, 1)) {
                 monitor(Thread.currentThread());
                 return true;
             }
@@ -146,7 +144,7 @@ public class TimeOutLock {
 
     private void wakeUpFirstNode() {
         while (true) {
-            if (rootNode != null) {
+            if (lockState != 0) {
                 ThreadNode headThreadNode = rootNode;
                 if (casChangeLockStatus(1, 0)) {
                     while (true) {
