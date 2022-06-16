@@ -18,35 +18,35 @@ public class Test {
 
     public static void haveLock() {
 
-         for (int oo = 0; oo < 10; oo++) {
-        int finalO = 1;
-        //正常添
-        TimeOutLock lock = new TimeOutLock();
-        for (int i = 0; i < 5; i++) {
-            int finalI = i;
-            Thread thread = new Thread(() -> {
-                //System.out.println(finalI);
-                lock.lock();
-                for (int i1 = 0; i1 < 10000; i1++) {
-                    t++;
-                }
-                System.out.println("线程:" + Thread.currentThread().getName() + "循环" + "结果" + t);
-                lock.unLock();
-            });
-            thread.setName(finalI + "=" + finalO);
-            thread.start();
-        }
-        try {
+        for (int oo = 0; oo < 10; oo++) {
+            int finalO = 1;
+            //正常添
+            TimeOutLock lock = new TimeOutLock();
+            for (int i = 0; i < 10; i++) {
+                int finalI = i;
+                Thread thread = new Thread(() -> {
+                    //System.out.println(finalI);
+                    lock.lock();
+                    for (int i1 = 0; i1 < 10000; i1++) {
+                        t++;
+                    }
+                    System.out.println("线程:" + Thread.currentThread().getName() + "循环" + "结果" + t);
+                    lock.unLock();
+                });
+                thread.setName(finalI + "=" + finalO);
+                thread.start();
+            }
+            try {
 
 
-            Thread.sleep(4000);
-            System.out.println("\n\n");
-            t = 0;
-            lock.show();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+                Thread.sleep(4000);
+                System.out.println("\n\n");
+                t = 0;
+                lock.show();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
-         }
 
         //模拟10个超时的线程
 //        for (int i = 0; i < 10; i++) {
