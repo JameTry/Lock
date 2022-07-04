@@ -2,6 +2,8 @@ package work.jame.lock2.test;
 
 import work.jame.lock2.TimeOutLock;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * @author : Jame
  * @date : 2022-06-10 14:35
@@ -17,6 +19,8 @@ public class Test {
 
 
     public static void haveLock() {
+        ReentrantLock lock1 = new ReentrantLock(true);
+        lock1.lock();
 
         for (int oo = 0; oo < 10; oo++) {
             int finalO = 1;

@@ -80,7 +80,6 @@ public class TimeOutLock {
                     unsafe.park(false, 0L);
                     acquire(newNode);
                     return;
-
                 }
             } else if (lockState == 0 && addHeadNode()) {
                 return;
@@ -133,34 +132,31 @@ public class TimeOutLock {
     }
 
     public void unLock() {
-        if (rootNode != null) {
-            wakeUpFirstNode();
-        }
+       // while (true) {
+            if (lockState != 2 && rootNode != null) {
+                if (lockState == 1) {
+                    ThreadNode headThreadNode = rootNode;
+                    if (casChangeLockStatus(1, 0)) {
+                        while (true) {
+                            if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
+                                unsafe.unpark(headThreadNode.thread);
+                                headThreadNode.nextNode = null;
+                                monitor(headThreadNode.thread);
+                                return;
+                            }
+                        }
+                    }
+                } else {
+                    return;
+                }
+            }
+        //}
     }
 
     public void show() {
         System.out.println(rootNode);
     }
 
-    private void wakeUpFirstNode() {
-        while (true) {
-            if (lockState != 0) {
-                ThreadNode headThreadNode = rootNode;
-                if (casChangeLockStatus(1, 0)) {
-                    while (true) {
-                        if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
-                            unsafe.unpark(headThreadNode.thread);
-                            headThreadNode.nextNode = null;
-                            monitor(headThreadNode.thread);
-                            return;
-                        }
-                    }
-                }
-            } else {
-                return;
-            }
-        }
-    }
 
     /**
      * 监视当前执行的线程是否超时,如果超时则打断执行
