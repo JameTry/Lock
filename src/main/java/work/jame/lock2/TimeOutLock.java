@@ -3,6 +3,7 @@ package work.jame.lock2;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author : Jame
@@ -66,34 +67,22 @@ public class TimeOutLock {
             return;
         }
         while (true) {
-            if (lockState == 1) {
-                ThreadNode node = getLastNode(rootNode);
-                if (node == null) {
-                    if (addHeadNode()) {
-                        return;
-                    }
-                } else if (casChangeLockStatus(1, 2)) {
-                    ThreadNode newNode = new ThreadNode();
-                    newNode.thread = Thread.currentThread();
-                    node.nextNode = newNode;
-                    absoluteCasChangeLockStatus(2, 1);
-                    unsafe.park(false, 0L);
-                    acquire(newNode);
+            if (lockState >= 1) {
+                ThreadNode lastNode = getLastNode(rootNode);
+                if (lastNode == null && addHeadNode()) {
                     return;
-
                 }
-            } else if (lockState == 0 && addHeadNode()) {
-                return;
+
+                ThreadNode newNode = new ThreadNode();
+                newNode.thread = Thread.currentThread();
+                if (casChangeNode(this, rootNodeOffset, lastNode.nextNode, newNode)) {
+                    unsafe.park(false, 0L);
+                    return;
+                }
             }
         }
-
     }
 
-    private void acquire(ThreadNode node) {
-        if (rootNode != node) {
-            absoluteCasChangeLockStatus(0, 1);
-        }
-    }
 
     /**
      * 添加头节点
@@ -101,18 +90,13 @@ public class TimeOutLock {
      * @return
      */
     private boolean addHeadNode() {
-        if (lockState == 1) {
-            if (rootNode == null && casChangeLockStatus(1, 2)) {
-                ThreadNode node = new ThreadNode();
-                node.thread = Thread.currentThread();
-                rootNode = node;
-                absoluteCasChangeLockStatus(2, 1);
+        if (lockState >= 1 && rootNode == null) {
+            ThreadNode node = new ThreadNode();
+            node.thread = Thread.currentThread();
+            if (casChangeNode(this, rootNodeOffset, rootNode, node)) {
                 unsafe.park(false, 0L);
-                acquire(node);
                 return true;
             }
-        } else if (lockState == 0) {
-            return tryRunning();
         }
         return false;
     }
@@ -124,7 +108,7 @@ public class TimeOutLock {
      */
     private boolean tryRunning() {
         for (int i = 0; i < 3; i++) {
-            if (rootNode == null && casChangeLockStatus(0, 1)) {
+            if (lockState == 0 && casChangeLockStatus(0, 1)) {
                 monitor(Thread.currentThread());
                 return true;
             }
@@ -146,18 +130,12 @@ public class TimeOutLock {
         while (true) {
             if (lockState != 0) {
                 ThreadNode headThreadNode = rootNode;
-                if (casChangeLockStatus(1, 0)) {
-                    while (true) {
-                        if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
-                            unsafe.unpark(headThreadNode.thread);
-                            headThreadNode.nextNode = null;
-                            monitor(headThreadNode.thread);
-                            return;
-                        }
-                    }
+                if (casChangeNode(this, rootNodeOffset, rootNode, headThreadNode.nextNode)) {
+                    unsafe.unpark(headThreadNode.thread);
+                    lockState = 0;
+                    headThreadNode.nextNode = null;
+                    return;
                 }
-            } else {
-                return;
             }
         }
     }
@@ -206,11 +184,6 @@ public class TimeOutLock {
         return unsafe.compareAndSwapInt(this, lockStateOffset, oldStatus, newStatus);
     }
 
-    private void absoluteCasChangeLockStatus(int oldStatus, int newStatus) {
-        while (true) {
-            if (casChangeLockStatus(oldStatus, newStatus)) return;
-        }
-    }
 
     /**
      * 获取最后的一个节点

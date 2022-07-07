@@ -2,6 +2,8 @@ package work.jame.lock2.test;
 
 import work.jame.lock2.TimeOutLock;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * @author : Jame
  * @date : 2022-06-10 14:35
@@ -10,19 +12,34 @@ public class Test {
 
     private static int t = 0;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args)  {
+//        ReentrantLock lock = new ReentrantLock(true);
+//        for (int i = 0; i < 2; i++) {
+//            new Thread(()->{
+//                lock.lock();
+//                try {
+//                    Thread.sleep(10000);
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
+//                lock.unlock();
+//            }).start();
+//        }
+
+
+
         haveLock();
-        //notLock();
+      //  notLock();
     }
 
 
     public static void haveLock() {
 
-        for (int oo = 0; oo < 10; oo++) {
+      //  for (int oo = 0; oo < 10; oo++) {
             int finalO = 1;
             //正常添
             TimeOutLock lock = new TimeOutLock();
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 3; i++) {
                 int finalI = i;
                 Thread thread = new Thread(() -> {
                     //System.out.println(finalI);
@@ -46,7 +63,7 @@ public class Test {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }
+     //   }
 
         //模拟10个超时的线程
 //        for (int i = 0; i < 10; i++) {
@@ -72,13 +89,13 @@ public class Test {
     public static void notLock() {
         for (int i = 0; i < 10; i++) {
             new Thread(() -> {
-                synchronized (Test.class) {
+               // synchronized (Test.class) {
                     //System.out.println(finalI);
                     for (int i1 = 0; i1 < 10000; i1++) {
                         t++;
                     }
                     System.out.println(Thread.currentThread().getName() + "结果" + t);
-                }
+              //  }
             }).start();
 
         }
